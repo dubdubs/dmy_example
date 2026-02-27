@@ -68,7 +68,18 @@ void load_hourglass() {
 }
 
 // --- 渲染引擎 (保持 Bresenham 画线算法不变) ---
-// ... (之前的 draw_line 函数) ...
+void draw_line(char *buf, int w, int h, int x0, int y0, int x1, int y1) {
+    int dx = abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
+    int dy = -abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
+    int err = dx + dy, e2;
+    while (1) {
+        if (x0 >= 0 && x0 < w && y0 >= 0 && y0 < h) buf[y0 * w + x0] = '#';
+        if (x0 == x1 && y0 == y1) break;
+        e2 = 2 * err;
+        if (e2 >= dy) { err += dy; x0 += sx; }
+        if (e2 <= dx) { err += dx; y0 += sy; }
+    }
+}
 
 int main(int argc, char *argv[]) {
     int width = 100, height = 40;
