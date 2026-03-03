@@ -17,13 +17,15 @@
 #define STIMER_BASE_ADDR   0x10011000UL
 #define STIMER_MEM_SIZE    0x1000
 
-/* DW APB Timer 寄存器偏移（假设） */
+/* DW APB Timer 寄存器偏移 */
 #define STIMER_LOAD        0x00   /* 重载值寄存器 */
 #define STIMER_CTRL        0x08   /* 控制寄存器 */
 #define STIMER_INTCLR      0x0C   /* 中断清除寄存器 */
 
 /* ioctl 命令 */
 #define STIMER_SET_INTERVAL _IOW('s', 1, unsigned int)
+#define STIMER_START        _IO('s', 2)   /* 启动定时器（配置并开始） */
+#define STIMER_STOP         _IO('s', 3)   /* 停止定时器 */
 
 static void __iomem *timer_regs;
 static atomic_t timer_triggered = ATOMIC_INIT(0);
@@ -38,35 +40,24 @@ static irqreturn_t stimer_irq_handler(int irq, void *dev_id)
 
     atomic_set(&timer_triggered, 1);
     wake_up_interruptible(&timer_wait_queue);
+    /* 注意：此处不能将 timer_triggered 清零，否则唤醒的进程可能看不到标志 */
     return IRQ_HANDLED;
 }
 
-/* read：启动定时器并阻塞等待一次中断 */
+/* read：仅阻塞等待下一次中断 */
 static ssize_t stimer_read(struct file *file, char __user *buf,
                            size_t count, loff_t *ppos)
 {
-    /* 1. 禁用定时器 */
-    writel(0x2, timer_regs + STIMER_CTRL);
-
-    /* 2. 清除硬件中断（读 INTCLR 寄存器） */
-    readl(timer_regs + STIMER_INTCLR);
-
-    /* 3. 设置周期 */
-    writel(timer_interval, timer_regs + STIMER_LOAD);
-
-    // /* 4. 清除软件事件标志 */
-    atomic_set(&timer_triggered, 0);
-
-    writel(0x3, timer_regs + STIMER_CTRL);
-
-    /* 6. 等待中断 */
+    /* 等待中断事件 */
     if (wait_event_interruptible(timer_wait_queue, atomic_read(&timer_triggered)))
         return -ERESTARTSYS;
 
+    /* 读取后自动清除标志，以便下次等待 */
+    atomic_set(&timer_triggered, 0);
     return 0;
 }
 
-/* ioctl：仅支持设置周期 */
+/* ioctl：支持设置周期、启动、停止 */
 static long stimer_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
     unsigned int val;
@@ -80,6 +71,32 @@ static long stimer_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
         timer_interval = val;
         pr_info("STimer: interval updated to %u\n", timer_interval);
         break;
+
+    case STIMER_START:
+        /* 1. 禁用定时器，设置用户定义模式（写 0x2） */
+        writel(0x2, timer_regs + STIMER_CTRL);
+
+        /* 2. 清除硬件中断（读 INTCLR） */
+        readl(timer_regs + STIMER_INTCLR);
+
+        /* 3. 设置周期 */
+        writel(timer_interval, timer_regs + STIMER_LOAD);
+
+        /* 4. 清除软件事件标志 */
+        atomic_set(&timer_triggered, 0);
+
+        /* 5. 使能定时器（用户定义模式 + 中断使能，写 0x3） */
+        writel(0x3, timer_regs + STIMER_CTRL);
+
+        pr_info("STimer: started with interval %u\n", timer_interval);
+        break;
+
+    case STIMER_STOP:
+        /* 停止定时器：写 0x2（禁用，保持模式） */
+        writel(0x2, timer_regs + STIMER_CTRL);
+        pr_info("STimer: stopped\n");
+        break;
+
     default:
         return -EINVAL;
     }
@@ -167,4 +184,4 @@ static struct platform_driver stimer_driver = {
 module_platform_driver(stimer_driver);
 
 MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("Simple STimer driver");
+MODULE_DESCRIPTION("Simple STimer driver with start/stop ioctl");
