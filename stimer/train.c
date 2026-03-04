@@ -307,10 +307,10 @@ int run_train_once(void) {
 
             if (ret == ERR) break;
 
-            if (read(STDIN_FILENO, &c, 1) > 0) {
-                running = 0;
-                break;
-            }
+            // if (read(STDIN_FILENO, &c, 1) > 0) {
+            //     running = 0;
+            //     break;
+            // }
 
             unsigned long long current_cycles = get_cycles();
             char hud[256];
