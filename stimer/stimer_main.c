@@ -12,6 +12,8 @@
 #define STIMER_START        _IO('s', 2)   // 新增
 #define STIMER_STOP         _IO('s', 3)   // 新增
 
+#define DEFAULT_INTERVAL    10000000  // default timer period
+
 extern int run_train_once(void);
 static struct termios orig_termios;
 
@@ -46,20 +48,22 @@ int kbhit()
 
 int main(int argc, char *argv[])
 {
-    // Check command line arguments
-    if (argc != 2) {
-        fprintf(stderr, "Usage: %s <interval>\n", argv[0]);
-        fprintf(stderr, "  interval: timer period as a positive integer (e.g., 1000000)\n");
-        return 1;
-    }
+    unsigned long interval = DEFAULT_INTERVAL;
 
-    // Parse interval argument
-    char *endptr;
-    unsigned long interval = strtoul(argv[1], &endptr, 0);
-    if (*endptr != '\0' || interval == 0 || interval > UINT_MAX) {
-        fprintf(stderr, "Error: invalid interval '%s' – must be a positive integer (1..%u)\n",
-                argv[1], UINT_MAX);
+    // Parse command line arguments (optional)
+    if (argc > 2) {
+        fprintf(stderr, "Usage: %s [interval]\n", argv[0]);
+        fprintf(stderr, "  interval: optional timer period (positive integer, default %lu)\n", DEFAULT_INTERVAL);
         return 1;
+    } else if (argc == 2) {
+        char *endptr;
+        unsigned long val = strtoul(argv[1], &endptr, 0);
+        if (*endptr != '\0' || val == 0 || val > UINT_MAX) {
+            fprintf(stderr, "Error: invalid interval '%s' – must be a positive integer (1..%u)\n",
+                    argv[1], UINT_MAX);
+            return 1;
+        }
+        interval = val;
     }
     setup_terminal();   
 
