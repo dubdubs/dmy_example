@@ -44,8 +44,23 @@ int kbhit()
     return select(STDIN_FILENO + 1, &fds, NULL, NULL, &tv);
 }
 
-int main()
+int main(int argc, char *argv[])
 {
+    // Check command line arguments
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <interval>\n", argv[0]);
+        fprintf(stderr, "  interval: timer period as a positive integer (e.g., 1000000)\n");
+        return 1;
+    }
+
+    // Parse interval argument
+    char *endptr;
+    unsigned long interval = strtoul(argv[1], &endptr, 0);
+    if (*endptr != '\0' || interval == 0 || interval > UINT_MAX) {
+        fprintf(stderr, "Error: invalid interval '%s' – must be a positive integer (1..%u)\n",
+                argv[1], UINT_MAX);
+        return 1;
+    }
     setup_terminal();   
 
     int fd = open("/dev/stimer", O_RDWR);
@@ -55,8 +70,6 @@ int main()
     }
 
     printf("Press any key to exit...\n");
-
-    unsigned int interval = 1000000;
 
     // 设置周期
     if (ioctl(fd, STIMER_SET_INTERVAL, &interval) < 0) {
@@ -87,6 +100,11 @@ int main()
         if (read(fd, buf, sizeof(buf)) < 0) {
             perror("read");
             break;
+        } else {
+            if (kbhit()) {
+                getchar();   // 读掉输入
+                break;
+        }
         }
 
         printf("Timer interrupt triggered the %d times!\n", count);
