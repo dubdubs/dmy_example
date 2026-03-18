@@ -1,0 +1,6 @@
+# 编译（不链接标准库，不初始化数据段）
+riscv64-unknown-elf-gcc -march=rv64im -mabi=lp64 -nostdlib -ffreestanding \
+    -Ttext=0x60000000 -o test.elf test.c
+
+# 提取纯二进制
+riscv64-unknown-elf-objcopy -O binary test.elf test.bin
