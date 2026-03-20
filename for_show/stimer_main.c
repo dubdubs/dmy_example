@@ -92,6 +92,7 @@ int main(int argc, char *argv[])
     int running = 1;
 
     while (1) {
+        // don't need in xtor xterm
         if (kbhit()) {
             getchar();   // 读掉输入
             printf("\nKey pressed, exiting...\n");
@@ -106,6 +107,7 @@ int main(int argc, char *argv[])
             perror("read");
             break;
         } else {
+             // don't need in xtor xterm
             if (kbhit()) {
                 getchar();   // 读掉输入
                 break;
